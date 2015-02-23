@@ -1,6 +1,6 @@
 extern crate warehouse;
 
-use warehouse::{ Auth, Crates };
+use warehouse::Crates;
 
 fn main() {
    let mut crates = Crates::new(
