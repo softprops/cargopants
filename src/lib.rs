@@ -28,6 +28,11 @@ struct Status {
 }
 
 #[derive(RustcDecodable)]
+struct Following {
+  following: bool
+}
+
+#[derive(RustcDecodable)]
 pub struct User {
   pub id: u32,
   pub login: String,
@@ -75,8 +80,9 @@ impl Client {
     }
   }
  
+  // todo: soft (downloads|name), by letter/keyword/user_id/following
   pub fn find(&mut self, query: &str) -> Result<Vec<Crate>> {
-    let body = try!(self.get(format!("/crates?q={}", query)));
+    let body = try!(self.get(format!("/crates?q={}&sort={}", query, "name")));
     Ok(json::decode::<Crates>(&body).unwrap().crates)
   }
 
@@ -84,9 +90,27 @@ impl Client {
     self.get(format!("/crates/{}", name))
   }
 
+  pub fn follow(&mut self, krate: &str) -> Result<()> {
+    let body = try!(self.put(format!("/crates/{}/follow", krate), &vec![]));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn unfollow(&mut self, krate: &str) -> Result<()> {
+    let body = try!(self.delete(format!("/crates/{}/follow", krate), None));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn following(&mut self, krate: &str) -> Result<()> {
+    let body = try!(self.get(format!("/crates/{}/following", krate)));
+    assert!(json::decode::<Following>(&body).unwrap().following);
+    Ok(())
+  }
+
   pub fn add_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
     let body = json::encode(&OwnersReq { users: owners }).unwrap();
-    try!(self.put(format!("/crates/{}/owners", krate),
+    let body = try!(self.put(format!("/crates/{}/owners", krate),
                    body.as_bytes()));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
@@ -94,7 +118,7 @@ impl Client {
 
   pub fn remove_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
     let body = json::encode(&OwnersReq { users: owners }).unwrap();
-    try!(self.delete(format!("/crates/{}/owners", krate),
+    let body = try!(self.delete(format!("/crates/{}/owners", krate),
                      Some(body.as_bytes())));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
