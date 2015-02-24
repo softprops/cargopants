@@ -105,6 +105,8 @@ impl Client {
     Ok(json::decode::<Users>(&body).unwrap().users)
   }
 
+  // todo: https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L74-L96
+
   fn get(&mut self, path: String) -> Result<String> {
     self.req(path, None, Method::Get)
   }
