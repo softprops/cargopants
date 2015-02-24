@@ -86,7 +86,7 @@ impl Client {
 
   pub fn add_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
     let body = json::encode(&OwnersReq { users: owners }).unwrap();
-    try!(self.put(format!("/creates/{}/owners", krate),
+    try!(self.put(format!("/crates/{}/owners", krate),
                    body.as_bytes()));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
@@ -94,7 +94,7 @@ impl Client {
 
   pub fn remove_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
     let body = json::encode(&OwnersReq { users: owners }).unwrap();
-    try!(self.delete(format!("/creates/{}/owners", krate),
+    try!(self.delete(format!("/crates/{}/owners", krate),
                      Some(body.as_bytes())));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
