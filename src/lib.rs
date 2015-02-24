@@ -64,7 +64,7 @@ impl Client {
     Client { host: host, token: token }
   }
  
-  pub fn search(&mut self, query: &str) -> Result<Vec<Crate>> {
+  pub fn find(&mut self, query: &str) -> Result<Vec<Crate>> {
     let body = try!(self.get(format!("/crates?q={}", query)));
     Ok(json::decode::<Crates>(&body).unwrap().crates)
   }

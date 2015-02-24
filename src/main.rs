@@ -7,8 +7,8 @@ fn main() {
      "https://crates.io".to_string(), None);
    let get = crates.named("url");
    println!("result {:?}", get);
-   let search = crates.search(
+   let query = crates.find(
        "url"
     );
-   println!("result {:?}", search.ok().expect("crates"));
+   println!("result {:?}", query.ok().expect("crates"));
 }
