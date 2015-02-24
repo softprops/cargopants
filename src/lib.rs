@@ -29,11 +29,11 @@ struct Status {
 
 #[derive(RustcDecodable)]
 pub struct User {
-    pub id: u32,
-    pub login: String,
-    pub avatar: String,
-    pub email: Option<String>,
-    pub name: Option<String>,
+  pub id: u32,
+  pub login: String,
+  pub avatar: String,
+  pub email: Option<String>,
+  pub name: Option<String>,
 }
 
 #[derive(RustcDecodable)]
