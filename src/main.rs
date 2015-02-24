@@ -1,9 +1,9 @@
-extern crate warehouse;
+extern crate cargopants;
 
-use warehouse::Crates;
+use cargopants::Client;
 
 fn main() {
-   let mut crates = Crates::new(
+   let mut crates = Client::new(
      "https://crates.io".to_string(), None);
    let get = crates.named("url");
    println!("result {:?}", get);
