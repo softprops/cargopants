@@ -60,8 +60,19 @@ struct Crates {
 }
 
 impl Client {
-  pub fn new(host: String, token: Option<String>) -> Client {
-    Client { host: host, token: token }
+  pub fn new() -> Client {
+    Client::host("https://crates.io")
+  }
+
+  pub fn host(addr: &str) -> Client {
+    Client { host: addr.to_string(), token: None }
+  }
+
+  pub fn token(self, auth: &str) -> Client {
+    Client {
+      host: self.host,
+      token: Some(auth.to_string())
+    }
   }
  
   pub fn find(&mut self, query: &str) -> Result<Vec<Crate>> {
