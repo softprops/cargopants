@@ -33,6 +33,7 @@ struct Following {
 }
 
 #[derive(RustcDecodable)]
+#[derive(Debug)]
 pub struct User {
   pub id: u32,
   pub login: String,
@@ -52,6 +53,38 @@ pub struct Crate {
   pub name: String,
   pub description: Option<String>,
   pub max_version: String
+}
+
+#[derive(RustcDecodable)]
+#[derive(Debug)]
+pub struct Version {
+  // crate: String,
+  pub created_at: String,
+  pub dl_path: String,
+  pub downloads: u32,
+  pub num: String,
+  pub updated_at: String,
+  pub yanked: bool
+}
+
+#[derive(RustcDecodable)]
+pub struct VersionReq {
+  version: Version
+}
+
+#[derive(RustcDecodable)]
+struct Versions {
+  versions: Vec<Version>
+}
+
+#[derive(RustcDecodable)]
+struct Meta {
+  names: Vec<String>
+}
+
+#[derive(RustcDecodable)]
+struct Authors {
+  meta: Meta
 }
 
 #[derive(RustcEncodable)]
@@ -90,6 +123,22 @@ impl Client {
     self.get(format!("/crates/{}", name))
   }
 
+  pub fn versions(&mut self, name: &str) -> Result<Vec<Version>> {
+    let body = try!(self.get(format!("/crates/{}/versions", name)));
+    let versions: Vec<Version> = json::decode::<Versions>(&body).unwrap().versions;
+    Ok(versions)
+  }
+
+  pub fn version(&mut self, name: &str, version: &str) -> Result<Version> {
+    let body = try!(self.get(format!("/crates/{}/{}", name, version)));
+    Ok(json::decode::<VersionReq>(&body).unwrap().version)
+  }
+
+  pub fn authors(&mut self, name: &str, version: &str) -> Result<Vec<String>> {
+    let body = try!(self.get(format!("/crates/{}/{}/authors", name, version)));
+    Ok(json::decode::<Authors>(&body).unwrap().meta.names)
+  }
+
   pub fn follow(&mut self, krate: &str) -> Result<()> {
     let body = try!(self.put(format!("/crates/{}/follow", krate), &vec![]));
     assert!(json::decode::<Status>(&body).unwrap().ok);
@@ -102,10 +151,9 @@ impl Client {
     Ok(())
   }
 
-  pub fn following(&mut self, krate: &str) -> Result<()> {
+  pub fn following(&mut self, krate: &str) -> Result<bool> {
     let body = try!(self.get(format!("/crates/{}/following", krate)));
-    assert!(json::decode::<Following>(&body).unwrap().following);
-    Ok(())
+    Ok(json::decode::<Following>(&body).unwrap().following)
   }
 
   pub fn add_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
@@ -127,6 +175,18 @@ impl Client {
   pub fn owners(&mut self, krate: &str) -> Result<Vec<User>> {
     let body = try!(self.get(format!("/crates/{}/owners", krate)));
     Ok(json::decode::<Users>(&body).unwrap().users)
+  }
+
+  pub fn yank(&mut self, krate: &str, version: &str) -> Result<()> {
+    let body = try!(self.delete(format!("/crates/{}/{}/yank", krate, version), None));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn unyank(&mut self, krate: &str, version: &str) -> Result<()> {
+    let body = try!(self.put(format!("/crates/{}/{}/unyank", krate, version), &vec![]));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
   }
 
   // todo: https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L74-L96
