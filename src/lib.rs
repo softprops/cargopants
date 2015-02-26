@@ -173,7 +173,7 @@ impl Client {
     Ok(json::decode::<Crates>(&body).unwrap().crates)
   }
 
-  pub fn named(&mut self, name: &str) -> Result<Crate> { // can't decode this automagically because it contains the key "crate"!
+  pub fn named(&mut self, name: &str) -> Result<Crate> {
     let body = try!(self.get(format!("/crates/{}", name)));
     Ok(json::decode::<CrateReq>(&body).unwrap().krate)
   }
