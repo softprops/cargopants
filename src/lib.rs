@@ -264,14 +264,10 @@ impl Client {
   }
 
   // todo: reverse deps -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L92
-
-  // todo: all versions -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L93
-
-  // todo: version? -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L94
-
-  // todo: keyboards? -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L95
-
-  // todo: keyboard -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L96
+  pub fn reverse_dependencies(&mut self, krate: &str) -> Result<Vec<Dependency>> {
+    let body = try!(self.get(format!("/crates/{}/reverse_dependencies", krate)));
+    Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
+  }
 
   fn get(&mut self, path: String) -> Result<String> {
     self.req(path, None, Method::Get)
