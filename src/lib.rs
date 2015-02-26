@@ -1,4 +1,5 @@
 #![feature(old_io)]
+#![feature(old_path)]
 
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate hyper;
@@ -6,13 +7,15 @@ extern crate mime;
 extern crate url;
 
 use hyper::Url;
-use hyper::header::{ Accept, Authorization, ContentType, UserAgent, qitem };
+use hyper::header::{ Accept, Authorization, ContentType, ContentLength, UserAgent, qitem };
 use hyper::method::Method;
 use mime::{ Attr, Mime, Value };
 use mime::TopLevel::Application;
 use mime::SubLevel::Json;
 use rustc_serialize::{ Decoder, Decodable, json };
-use std::old_io::IoError;
+use std::collections::HashMap;
+use std::old_io::{ fs, MemReader, MemWriter, File, IoError, IoErrorKind };
+use std::old_io::util::ChainedReader;
 use std::result;
 
 pub type Result<T> = result::Result<T, IoError>;
@@ -142,6 +145,34 @@ struct Authors {
 }
 
 #[derive(RustcEncodable)]
+pub struct NewCrate {
+  pub name: String,
+  pub vers: String,
+  pub deps: Vec<NewCrateDependency>,
+  pub features: HashMap<String, Vec<String>>,
+  pub authors: Vec<String>,
+  pub description: Option<String>,
+  pub documentation: Option<String>,
+  pub homepage: Option<String>,
+  pub readme: Option<String>,
+  pub keywords: Vec<String>,
+  pub license: Option<String>,
+  pub license_file: Option<String>,
+  pub repository: Option<String>,
+}
+
+#[derive(RustcEncodable)]
+pub struct NewCrateDependency {
+  pub optional: bool,
+  pub default_features: bool,
+  pub name: String,
+  pub features: Vec<String>,
+  pub version_req: String,
+  pub target: Option<String>,
+  pub kind: String,
+}
+
+#[derive(RustcEncodable)]
 pub struct OwnersReq<'a> {
   users: &'a [&'a str]
 }
@@ -179,6 +210,36 @@ impl Client {
   }
 
   // todo: publish -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L76
+  pub fn publish(&mut self, krate: &NewCrate, tarball: &Path) -> Result<()> {
+    let metadata = json::encode(krate).unwrap();
+    fn not_found() -> IoError {
+      IoError {
+        kind: IoErrorKind::FileNotFound,
+        desc: "File not found",
+        detail: None
+      }
+    }
+    let stat = match fs::stat(tarball) {
+       Ok(f) => Ok(f),
+       _     => Err(not_found())
+    }.unwrap();
+    let header = {
+      let mut w = MemWriter::new();
+      w.write_le_u32(metadata.len() as u32).unwrap();
+      w.write_str(&metadata).unwrap();
+      w.write_le_u32(stat.size as u32).unwrap();
+      MemReader::new(w.into_inner())
+    };
+    let tarball = try!(File::open(tarball));//.map_error(IoError);
+    let mut body = ChainedReader::new(
+      vec![Box::new(header) as Box<Reader>,
+           Box::new(tarball) as Box<Reader>].into_iter());
+    // fixme: this sucks
+    let bytes = try!(body.read_to_end());
+    //let size = stat.size as usize + header.get_ref().len();
+    let _ = try!(self.put("/crates/new".to_string(), &bytes));
+    Ok(())
+  }
 
   pub fn version(&mut self, name: &str, version: &str) -> Result<Version> {
     let body = try!(self.get(format!("/crates/{}/{}", name, version)));
@@ -263,7 +324,6 @@ impl Client {
     Ok(())
   }
 
-  // todo: reverse deps -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L92
   pub fn reverse_dependencies(&mut self, krate: &str) -> Result<Vec<Dependency>> {
     let body = try!(self.get(format!("/crates/{}/reverse_dependencies", krate)));
     Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
@@ -288,9 +348,13 @@ impl Client {
         .header(UserAgent("cargopants/0.1.0".to_string()))
         .header(Accept(vec![qitem(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]))]))
         .header(ContentType(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)])));
+      let sized = match body {
+        Some(b) => bound.header(ContentLength(b.len() as u64)),
+             _  => bound
+      };
       let authenticated = match self.token.clone() {
-        Some(auth) => bound.header(Authorization(auth)),
-                 _ => bound
+        Some(auth) => sized.header(Authorization(auth)),
+                 _ => sized
       };
       let embodied = match body {
         Some(data) => authenticated.body(data),
