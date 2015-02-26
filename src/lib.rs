@@ -11,7 +11,7 @@ use hyper::method::Method;
 use mime::{ Attr, Mime, Value };
 use mime::TopLevel::Application;
 use mime::SubLevel::Json;
-use rustc_serialize::json;
+use rustc_serialize::{ Decoder, Decodable, json };
 use std::old_io::IoError;
 use std::result;
 
@@ -53,6 +53,22 @@ pub struct Crate {
   pub name: String,
   pub description: Option<String>,
   pub max_version: String
+}
+
+// RustcDecodable be derived because the key used in json is `crate`,
+// a reserved word
+struct CrateReq {
+  krate: Crate
+}
+
+impl Decodable for CrateReq {
+  fn decode<D: Decoder>(d: &mut D) -> result::Result<CrateReq, D::Error> {
+    d.read_struct("CrateReq", 1usize, |_d| {
+      Ok(CrateReq {
+        krate: try!(_d.read_struct_field("crate", 0usize, |_d| Decodable::decode(_d)))
+      })
+    })
+  }
 }
 
 #[derive(RustcDecodable)]
@@ -157,8 +173,9 @@ impl Client {
     Ok(json::decode::<Crates>(&body).unwrap().crates)
   }
 
-  pub fn named(&mut self, name: &str) -> Result<String> { // can't decode this automagically because it contains the key "crate"!
-    self.get(format!("/crates/{}", name))
+  pub fn named(&mut self, name: &str) -> Result<Crate> { // can't decode this automagically because it contains the key "crate"!
+    let body = try!(self.get(format!("/crates/{}", name)));
+    Ok(json::decode::<CrateReq>(&body).unwrap().krate)
   }
 
   // todo: publish -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L76
