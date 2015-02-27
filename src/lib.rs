@@ -7,6 +7,7 @@ extern crate mime;
 extern crate url;
 
 use hyper::Url;
+use hyper::client::{ Body, IntoBody };
 use hyper::header::{ Accept, Authorization, ContentType, ContentLength, UserAgent, qitem };
 use hyper::method::Method;
 use mime::{ Attr, Mime, Value };
@@ -19,6 +20,8 @@ use std::old_io::util::ChainedReader;
 use std::result;
 
 pub type Result<T> = result::Result<T, IoError>;
+
+static NOBODY: Option<&'static str> = None;
 
 pub struct Client {
   host: String,
@@ -182,7 +185,7 @@ struct Crates {
   crates: Vec<Crate>
 }
 
-impl Client {
+impl<'a> Client {
   pub fn new() -> Client {
     Client::host("https://crates.io")
   }
@@ -230,14 +233,12 @@ impl Client {
       w.write_le_u32(stat.size as u32).unwrap();
       MemReader::new(w.into_inner())
     };
+    let size = stat.size as usize + header.get_ref().len();
     let tarball = try!(File::open(tarball));//.map_error(IoError);
     let mut body = ChainedReader::new(
       vec![Box::new(header) as Box<Reader>,
            Box::new(tarball) as Box<Reader>].into_iter());
-    // fixme: this sucks
-    let bytes = try!(body.read_to_end());
-    //let size = stat.size as usize + header.get_ref().len();
-    let _ = try!(self.put("/crates/new".to_string(), &bytes));
+    let _ = try!(self.put("/crates/new".to_string(), Some(Body::SizedBody(&mut body, size as u64))));
     Ok(())
   }
 
@@ -275,13 +276,13 @@ impl Client {
   }
 
   pub fn follow(&mut self, krate: &str) -> Result<()> {
-    let body = try!(self.put(format!("/crates/{}/follow", krate), &vec![]));
+    let body = try!(self.put(format!("/crates/{}/follow", krate), NOBODY));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
   pub fn unfollow(&mut self, krate: &str) -> Result<()> {
-    let body = try!(self.delete(format!("/crates/{}/follow", krate), None));
+    let body = try!(self.delete(format!("/crates/{}/follow", krate), NOBODY));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -299,7 +300,7 @@ impl Client {
   pub fn add_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
     let body = json::encode(&OwnersReq { users: owners }).unwrap();
     let body = try!(self.put(format!("/crates/{}/owners", krate),
-                   body.as_bytes()));
+                             Some(body.as_bytes())));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -313,13 +314,13 @@ impl Client {
   }
 
   pub fn yank(&mut self, krate: &str, version: &str) -> Result<()> {
-    let body = try!(self.delete(format!("/crates/{}/{}/yank", krate, version), None));
+    let body = try!(self.delete(format!("/crates/{}/{}/yank", krate, version), NOBODY));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
   pub fn unyank(&mut self, krate: &str, version: &str) -> Result<()> {
-    let body = try!(self.put(format!("/crates/{}/{}/unyank", krate, version), &vec![]));
+    let body = try!(self.put(format!("/crates/{}/{}/unyank", krate, version), NOBODY));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -330,35 +331,31 @@ impl Client {
   }
 
   fn get(&mut self, path: String) -> Result<String> {
-    self.req(path, None, Method::Get)
+    self.req(path, NOBODY, Method::Get)
   }
 
-  fn delete(&mut self, path: String, body: Option<&[u8]>) -> Result<String> {
+  fn delete<B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
     self.req(path, body, Method::Delete)
   }
 
-  fn put(&mut self, path: String, b: &[u8]) -> Result<String> {
-    self.req(path, Some(b), Method::Put)
+  fn put<B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
+    self.req(path, body, Method::Put)
   }
 
-  fn req(&mut self, path: String, body: Option<&[u8]>, method: Method) -> Result<String> {
-     let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
+  fn req<B: IntoBody<'a>>(&mut self, path: String, body: Option<B>, method: Method) -> Result<String> {
      let mut cli = hyper::Client::new();
+     let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
      let bound = cli.request(method, uri)
         .header(UserAgent("cargopants/0.1.0".to_string()))
         .header(Accept(vec![qitem(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]))]))
         .header(ContentType(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)])));
-      let sized = match body {
-        Some(b) => bound.header(ContentLength(b.len() as u64)),
-             _  => bound
-      };
       let authenticated = match self.token.clone() {
-        Some(auth) => sized.header(Authorization(auth)),
-                 _ => sized
+        Some(auth) => bound.header(Authorization(auth)),
+                 _ => bound
       };
       let embodied = match body {
-        Some(data) => authenticated.body(data),
-                 _ => authenticated
+        Some(data) => authenticated.body(data.into_body()),
+                _  => authenticated
       };
       let mut res = match embodied.send() {
         Ok(r) => r,
