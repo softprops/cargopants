@@ -1,5 +1,4 @@
 #![feature(old_io)]
-#![feature(old_path)]
 
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate hyper;
@@ -10,6 +9,7 @@ use hyper::Url;
 use hyper::client::{ Body, IntoBody };
 use hyper::header::{ Accept, Authorization, ContentType, ContentLength, UserAgent, qitem };
 use hyper::method::Method;
+use hyper::net::NetworkConnector;
 use mime::{ Attr, Mime, Value };
 use mime::TopLevel::Application;
 use mime::SubLevel::Json;
@@ -185,7 +185,7 @@ struct Crates {
   crates: Vec<Crate>
 }
 
-impl<'a> Client {
+impl Client {
   pub fn new() -> Client {
     Client::host("https://crates.io")
   }
@@ -306,9 +306,9 @@ impl<'a> Client {
   }
 
   pub fn remove_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
-    let body = json::encode(&OwnersReq { users: owners }).unwrap();
+    let data = json::encode(&OwnersReq { users: owners }).unwrap();
     let body = try!(self.delete(format!("/crates/{}/owners", krate),
-                     Some(body.as_bytes())));
+                     Some(data.as_bytes())));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -334,34 +334,34 @@ impl<'a> Client {
     self.req(path, NOBODY, Method::Get)
   }
 
-  fn delete<B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
+  fn delete<'a, B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
     self.req(path, body, Method::Delete)
   }
 
-  fn put<B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
+  fn put<'a, B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
     self.req(path, body, Method::Put)
   }
 
-  fn req<B: IntoBody<'a>>(&mut self, path: String, body: Option<B>, method: Method) -> Result<String> {
-     let mut cli = hyper::Client::new();
-     let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
-     let bound = cli.request(method, uri)
-        .header(UserAgent("cargopants/0.1.0".to_string()))
-        .header(Accept(vec![qitem(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]))]))
-        .header(ContentType(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)])));
-      let authenticated = match self.token.clone() {
-        Some(auth) => bound.header(Authorization(auth)),
-                 _ => bound
-      };
-      let embodied = match body {
-        Some(data) => authenticated.body(data.into_body()),
-                _  => authenticated
-      };
-      let mut res = match embodied.send() {
-        Ok(r) => r,
-        Err(err) => panic!("failed request: {:?}", err)
-      };
-      res.read_to_string()
+  fn req<'a, B: IntoBody<'a>>(&mut self, path: String, body: Option<B>, method: Method) -> Result<String> {
+    let mut cli = hyper::Client::new();
+    let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
+    let bound = cli.request(method, uri)
+      .header(UserAgent("cargopants/0.1.0".to_string()))
+      .header(Accept(vec![qitem(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]))]))
+      .header(ContentType(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)])));
+    let authenticated = match self.token.clone() {
+      Some(auth) => bound.header(Authorization(auth)),
+               _ => bound
+    };
+    let embodied = match body {
+      Some(data) => authenticated.body(data.into_body()),
+              _  => authenticated
+    };
+    let mut res = match embodied.send() {
+      Ok(r)    => r,
+      Err(err) => panic!("failed request: {:?}", err)
+    };
+    res.read_to_string()
   }  
 }
 
