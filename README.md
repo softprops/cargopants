@@ -1,5 +1,7 @@
 # cargo pants
 
+[![Build Status](https://travis-ci.org/softprops/cargopants.svg?branch=master)](https://travis-ci.org/softprops/cargopants)
+
 > a comfortable outfit for storehousing crate orders and receipts
 
 Cargo pants an an comfortably fitting interface for [crates.io](https://crates.io/). Some requests require authentication in the form of
