@@ -5,9 +5,12 @@ version = "0.0.1"
 authors = ["softprops <d.tangren@gmail.com>"]
 
 [dependencies]
-hyper = "*"
 rustc-serialize = "0.2"
-mime = "*"
+mime = "0.0.8"
+
+[dependencies.hyper]
+git = "https://github.com/hyperium/hyper.git"
+rev = "2ce4385c163e1a9a393c89743cf04e047b776e83"
 
 [dependencies.url]
 url = "https://github.com/servo/rust-url"

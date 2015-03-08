@@ -1,27 +1,31 @@
-#![feature(old_io)]
+#![feature(core)]
+#![feature(fs)]
+#![feature(io)]
+#![feature(path)]
 
 extern crate "rustc-serialize" as rustc_serialize;
 extern crate hyper;
 extern crate mime;
 extern crate url;
+extern crate core;
 
+use core::ops::DerefMut;
 use hyper::Url;
-use hyper::client::{ Body, IntoBody };
-use hyper::header::{ Accept, Authorization, ContentType, ContentLength, UserAgent, qitem };
+use hyper::client::Body;
+use hyper::header::{ Accept, Authorization, ContentType, UserAgent, qitem };
 use hyper::method::Method;
-use hyper::net::NetworkConnector;
 use mime::{ Attr, Mime, Value };
 use mime::TopLevel::Application;
 use mime::SubLevel::Json;
 use rustc_serialize::{ Decoder, Decodable, json };
 use std::collections::HashMap;
-use std::old_io::{ fs, MemReader, MemWriter, File, IoError, IoErrorKind };
-use std::old_io::util::ChainedReader;
+use std::fs::{ self, File };
+use std::io::prelude::*;
+use std::io::{ Cursor, Error };
+use std::path::Path;
 use std::result;
 
-pub type Result<T> = result::Result<T, IoError>;
-
-static NOBODY: Option<&'static str> = None;
+pub type Result<T> = result::Result<T, Error>;
 
 pub struct Client {
   host: String,
@@ -185,13 +189,21 @@ struct Crates {
   crates: Vec<Crate>
 }
 
+struct Bod<'a> {
+ read: &'a mut Box<&'a mut Read>,
+ size: u64
+}
+
 impl Client {
   pub fn new() -> Client {
     Client::host("https://crates.io")
   }
 
   pub fn host(addr: &str) -> Client {
-    Client { host: addr.to_string(), token: None }
+    Client {
+      host: addr.to_string(),
+      token: None
+    }
   }
 
   pub fn token(self, auth: &str) -> Client {
@@ -200,8 +212,8 @@ impl Client {
       token: Some(auth.to_string())
     }
   }
- 
-  // todo: soft (downloads|name), by letter/keyword/user_id/following
+
+  // todo: sort (downloads|name), by letter/keyword/user_id/following
   pub fn find(&mut self, query: &str) -> Result<Vec<Crate>> {
     let body = try!(self.get(format!("/crates?q={}&sort={}", query, "name")));
     Ok(json::decode::<Crates>(&body).unwrap().crates)
@@ -214,31 +226,29 @@ impl Client {
 
   // todo: publish -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L76
   pub fn publish(&mut self, krate: &NewCrate, tarball: &Path) -> Result<()> {
-    let metadata = json::encode(krate).unwrap();
-    fn not_found() -> IoError {
-      IoError {
-        kind: IoErrorKind::FileNotFound,
-        desc: "File not found",
-        detail: None
-      }
-    }
-    let stat = match fs::stat(tarball) {
-       Ok(f) => Ok(f),
-       _     => Err(not_found())
-    }.unwrap();
+    let json = json::encode(krate).unwrap();
+    let stat = try!(fs::metadata(tarball));
     let header = {
-      let mut w = MemWriter::new();
-      w.write_le_u32(metadata.len() as u32).unwrap();
-      w.write_str(&metadata).unwrap();
-      w.write_le_u32(stat.size as u32).unwrap();
-      MemReader::new(w.into_inner())
+      let mut w = Vec::new();
+      w.extend([
+        (json.len() >>  0) as u8,
+        (json.len() >>  8) as u8,
+        (json.len() >> 16) as u8,
+        (json.len() >> 24) as u8,
+      ].iter().cloned());
+      w.extend(json.as_bytes().iter().cloned());
+      w.extend([
+        (stat.len() >>  0) as u8,
+        (stat.len() >>  8) as u8,
+        (stat.len() >> 16) as u8,
+        (stat.len() >> 24) as u8,
+      ].iter().cloned());
+      w
     };
-    let size = stat.size as usize + header.get_ref().len();
-    let tarball = try!(File::open(tarball));//.map_error(IoError);
-    let mut body = ChainedReader::new(
-      vec![Box::new(header) as Box<Reader>,
-           Box::new(tarball) as Box<Reader>].into_iter());
-    let _ = try!(self.put("/crates/new".to_string(), Some(Body::SizedBody(&mut body, size as u64))));
+    let size = stat.len() as usize + header.len();
+    let tarball = try!(File::open(tarball));
+    let mut body = Cursor::new(header).chain(tarball);
+    let _ = try!(self.put("/crates/new".to_string(), Some(Bod { read: &mut Box::new(&mut body), size: size as u64 })));
     Ok(())
   }
 
@@ -276,13 +286,13 @@ impl Client {
   }
 
   pub fn follow(&mut self, krate: &str) -> Result<()> {
-    let body = try!(self.put(format!("/crates/{}/follow", krate), NOBODY));
+    let body = try!(self.put(format!("/crates/{}/follow", krate), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
   pub fn unfollow(&mut self, krate: &str) -> Result<()> {
-    let body = try!(self.delete(format!("/crates/{}/follow", krate), NOBODY));
+    let body = try!(self.delete(format!("/crates/{}/follow", krate), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -298,29 +308,31 @@ impl Client {
   }
 
   pub fn add_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
-    let body = json::encode(&OwnersReq { users: owners }).unwrap();
+    let data = json::encode(&OwnersReq { users: owners }).unwrap();
+    let mut bytes = data.as_bytes();
     let body = try!(self.put(format!("/crates/{}/owners", krate),
-                             Some(body.as_bytes())));
+                             Some(Bod { read: &mut Box::new(&mut bytes), size: bytes.len() as u64 })));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
   pub fn remove_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
     let data = json::encode(&OwnersReq { users: owners }).unwrap();
+    let mut bytes = data.as_bytes();
     let body = try!(self.delete(format!("/crates/{}/owners", krate),
-                     Some(data.as_bytes())));
+                                Some(Bod { read: &mut Box::new(&mut bytes), size: bytes.len() as u64 })));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
   pub fn yank(&mut self, krate: &str, version: &str) -> Result<()> {
-    let body = try!(self.delete(format!("/crates/{}/{}/yank", krate, version), NOBODY));
+    let body = try!(self.delete(format!("/crates/{}/{}/yank", krate, version), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
   pub fn unyank(&mut self, krate: &str, version: &str) -> Result<()> {
-    let body = try!(self.put(format!("/crates/{}/{}/unyank", krate, version), NOBODY));
+    let body = try!(self.put(format!("/crates/{}/{}/unyank", krate, version), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -331,21 +343,21 @@ impl Client {
   }
 
   fn get(&mut self, path: String) -> Result<String> {
-    self.req(path, NOBODY, Method::Get)
+    self.req(Method::Get, path, None)
   }
 
-  fn delete<'a, B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
-    self.req(path, body, Method::Delete)
+  fn delete(&mut self, path: String, body: Option<Bod>) -> Result<String> {
+    self.req(Method::Delete, path, body)
   }
 
-  fn put<'a, B: IntoBody<'a>>(&mut self, path: String, body: Option<B>) -> Result<String> {
-    self.req(path, body, Method::Put)
+  fn put(&mut self, path: String, body: Option<Bod>) -> Result<String> {
+    self.req(Method::Put, path, body)
   }
 
-  fn req<'a, B: IntoBody<'a>>(&mut self, path: String, body: Option<B>, method: Method) -> Result<String> {
-    let mut cli = hyper::Client::new();
+  fn req(&mut self, method: Method, path: String, body: Option<Bod>) -> Result<String> {
     let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
-    let bound = cli.request(method, uri)
+    let mut client = hyper::Client::new();
+    let bound = client.request(method, uri)
       .header(UserAgent("cargopants/0.1.0".to_string()))
       .header(Accept(vec![qitem(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]))]))
       .header(ContentType(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)])));
@@ -354,14 +366,18 @@ impl Client {
                _ => bound
     };
     let embodied = match body {
-      Some(data) => authenticated.body(data.into_body()),
-              _  => authenticated
+      Some(Bod { read: r, size: l }) => {
+        let reader: &mut Read  = *r.deref_mut();
+        authenticated.body(Body::SizedBody(reader, l))
+      },
+      _  => authenticated
     };
     let mut res = match embodied.send() {
       Ok(r)    => r,
       Err(err) => panic!("failed request: {:?}", err)
     };
-    res.read_to_string()
+    let mut body = String::new();
+    res.read_to_string(&mut body).map(|_| body)
   }  
 }
 
