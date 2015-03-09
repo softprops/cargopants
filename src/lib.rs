@@ -1,5 +1,4 @@
 #![feature(core)]
-#![feature(fs)]
 #![feature(io)]
 #![feature(path)]
 
@@ -357,10 +356,11 @@ impl Client {
   fn req(&mut self, method: Method, path: String, body: Option<Bod>) -> Result<String> {
     let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
     let mut client = hyper::Client::new();
+    let content_type: Mime = Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]);
     let bound = client.request(method, uri)
       .header(UserAgent("cargopants/0.1.0".to_string()))
-      .header(Accept(vec![qitem(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]))]))
-      .header(ContentType(Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)])));
+      .header(Accept(vec![qitem(content_type.clone())]))
+      .header(ContentType(content_type));
     let authenticated = match self.token.clone() {
       Some(auth) => bound.header(Authorization(auth)),
                _ => bound
