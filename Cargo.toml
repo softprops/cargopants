@@ -3,6 +3,12 @@
 name = "cargopants"
 version = "0.0.1"
 authors = ["softprops <d.tangren@gmail.com>"]
+description = "A client interface got cratesio."
+documentation = "https://github.com/softprops/cargopants#readme"
+homepage = "https://github.com/softprops/cargopants"
+repository = "https://github.com/softprops/cargopants"
+keywords = ["crates", "crates.io"]
+license = "MIT"
 
 [dependencies]
 hyper = "0.3.0"
