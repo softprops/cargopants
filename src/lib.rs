@@ -1,12 +1,14 @@
 #![feature(core)]
 #![feature(io)]
 #![feature(path)]
+#![feature(test)]
 
-extern crate "rustc-serialize" as rustc_serialize;
+extern crate core;
 extern crate hyper;
 extern crate mime;
+extern crate "rustc-serialize" as rustc_serialize;
+extern crate test;
 extern crate url;
-extern crate core;
 
 use core::ops::DerefMut;
 use hyper::Url;
@@ -381,6 +383,18 @@ impl Client {
   }  
 }
 
-#[test]
-fn it_works() {
+
+#[cfg(test)]
+mod tests {
+  use test::Bencher;
+
+  #[test]
+  fn it_parses_crate_req() {
+
+  }
+
+  #[bench]
+  fn it_benches(b: &mut Bencher) {
+
+  }
 }
