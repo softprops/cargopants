@@ -12,7 +12,7 @@ extern crate url;
 
 use core::ops::DerefMut;
 use hyper::Url;
-use hyper::client::Body;
+use hyper::client;
 use hyper::header::{ Accept, Authorization, ContentType, UserAgent, qitem };
 use hyper::method::Method;
 use mime::{ Attr, Mime, Value };
@@ -190,9 +190,15 @@ struct Crates {
   crates: Vec<Crate>
 }
 
-struct Bod<'a> {
+struct Body<'a> {
  read: &'a mut Box<&'a mut Read>,
  size: u64
+}
+
+impl<'a> Body<'a> {
+  pub fn new(read: &'a mut Box<&'a mut Read>, size: u64) -> Body<'a> {
+    Body { read: read, size: size }
+  }
 }
 
 impl Client {
@@ -249,7 +255,7 @@ impl Client {
     let size = stat.len() as usize + header.len();
     let tarball = try!(File::open(tarball));
     let mut body = Cursor::new(header).chain(tarball);
-    let _ = try!(self.put("/crates/new".to_string(), Some(Bod { read: &mut Box::new(&mut body), size: size as u64 })));
+    let _ = try!(self.put("/crates/new".to_string(), Some(Body::new(&mut Box::new(&mut body), size as u64))));
     Ok(())
   }
 
@@ -312,7 +318,7 @@ impl Client {
     let data = json::encode(&OwnersReq { users: owners }).unwrap();
     let mut bytes = data.as_bytes();
     let body = try!(self.put(format!("/crates/{}/owners", krate),
-                             Some(Bod { read: &mut Box::new(&mut bytes), size: bytes.len() as u64 })));
+                             Some(Body::new(&mut Box::new(&mut bytes), bytes.len() as u64))));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -321,7 +327,7 @@ impl Client {
     let data = json::encode(&OwnersReq { users: owners }).unwrap();
     let mut bytes = data.as_bytes();
     let body = try!(self.delete(format!("/crates/{}/owners", krate),
-                                Some(Bod { read: &mut Box::new(&mut bytes), size: bytes.len() as u64 })));
+                                Some(Body::new(&mut Box::new(&mut bytes), bytes.len() as u64))));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
@@ -347,15 +353,15 @@ impl Client {
     self.req(Method::Get, path, None)
   }
 
-  fn delete(&mut self, path: String, body: Option<Bod>) -> Result<String> {
+  fn delete(&mut self, path: String, body: Option<Body>) -> Result<String> {
     self.req(Method::Delete, path, body)
   }
 
-  fn put(&mut self, path: String, body: Option<Bod>) -> Result<String> {
+  fn put(&mut self, path: String, body: Option<Body>) -> Result<String> {
     self.req(Method::Put, path, body)
   }
 
-  fn req(&mut self, method: Method, path: String, body: Option<Bod>) -> Result<String> {
+  fn req(&mut self, method: Method, path: String, body: Option<Body>) -> Result<String> {
     let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
     let mut client = hyper::Client::new();
     let content_type: Mime = Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]);
@@ -368,9 +374,9 @@ impl Client {
                _ => bound
     };
     let embodied = match body {
-      Some(Bod { read: r, size: l }) => {
+      Some(Body { read: r, size: l }) => {
         let reader: &mut Read  = *r.deref_mut();
-        authenticated.body(Body::SizedBody(reader, l))
+        authenticated.body(client::Body::SizedBody(reader, l))
       },
       _  => authenticated
     };
