@@ -3,11 +3,8 @@ extern crate cargopants;
 use cargopants::Client;
 
 fn main() {
-   let mut crates = Client::new();
-   let get = crates.named("url");
-   println!("result {:?}", get);
-   let query = crates.find(
-       "url"
-    );
-   println!("result {:?}", query.ok().expect("crates"));
+   let mut cargo = Client::new();   
+   let mut k = cargo.krate("url");
+   let v = k.version("0.2.25");
+   println!("krate {:?}", v.get().unwrap());
 }
