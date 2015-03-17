@@ -17,3 +17,7 @@ mime = "0.0.10"
 
 [dependencies.url]
 url = "https://github.com/servo/rust-url"
+
+[[bin]]
+name = "cargopants"
+doc = false

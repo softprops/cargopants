@@ -3,6 +3,9 @@
 #![feature(path)]
 #![feature(test)]
 
+//! # cargopants
+//! Cargopants exposes an client interface for crates.io
+
 extern crate core;
 extern crate hyper;
 extern crate mime;
@@ -28,6 +31,7 @@ use std::result;
 
 pub type Result<T> = result::Result<T, Error>;
 
+/// Entry point for accessing crates.io
 pub struct Client {
   host: String,
   token: Option<String>
@@ -43,6 +47,7 @@ struct Following {
   following: bool
 }
 
+/// Representation of a crates.io User
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct User {
@@ -58,6 +63,7 @@ struct Users {
   users: Vec<User>
 }
 
+/// Representation of a crates.io Crate
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Crate {
@@ -82,6 +88,7 @@ impl Decodable for CrateReq {
   }
 }
 
+/// Representation of the downloads of a version on a given date
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Download {
@@ -104,6 +111,7 @@ struct MetaDownloads {
   meta: ExtraDownloads
 }
 
+/// Representation of a crate dependency
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Dependency {
@@ -120,6 +128,7 @@ struct Dependencies {
   dependencies: Vec<Dependency>    
 }
 
+/// Representation of a crate version
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Version {
@@ -152,6 +161,7 @@ struct Authors {
   meta: Meta
 }
 
+/// Interface for creating a new crate
 #[derive(RustcEncodable)]
 pub struct NewCrate {
   pub name: String,
@@ -169,6 +179,7 @@ pub struct NewCrate {
   pub repository: Option<String>,
 }
 
+/// Representation of a new crate dependency
 #[derive(RustcEncodable)]
 pub struct NewCrateDependency {
   pub optional: bool,
@@ -181,7 +192,7 @@ pub struct NewCrateDependency {
 }
 
 #[derive(RustcEncodable)]
-pub struct OwnersReq<'a> {
+struct OwnersReq<'a> {
   users: &'a [&'a str]
 }
 
@@ -198,6 +209,128 @@ struct Body<'a> {
 impl<'a> Body<'a> {
   pub fn new(read: &'a mut Box<&'a mut Read>, size: u64) -> Body<'a> {
     Body { read: read, size: size }
+  }
+}
+
+/// Client interface for a given crate version
+pub struct KrateVersion<'a, 'b, 'c> {
+  client: &'a mut Client,
+  name: &'b str,
+  version: &'c str
+}
+
+impl<'a, 'b, 'c> KrateVersion<'a, 'b, 'c> {
+  pub fn new(client:&'a mut Client, name: &'b str, version: &'c str) -> KrateVersion<'a, 'b, 'c> {
+    KrateVersion { client: client, name: name, version: version }
+  }
+
+  pub fn get(self) -> Result<Version> {
+    let body = try!(self.client.get(format!("/crates/{}/{}", self.name, self.version)));
+    Ok(json::decode::<VersionReq>(&body).unwrap().version)
+  }
+
+  pub fn dependencies(self) -> Result<Vec<Dependency>> {
+    let body = try!(self.client.get(format!("/crates/{}/{}/dependencies", self.name, self.version)));
+    Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
+  }
+
+  pub fn downloads(self) -> Result<Vec<Download>> {
+    let body = try!(self.client.get(format!("/crates/{}/{}/downloads", self.name, self.version)));
+    Ok(json::decode::<VersionDownloads>(&body).unwrap().version_downloads)
+  }
+
+  pub fn authors(self) -> Result<Vec<String>> {
+    let body = try!(self.client.get(format!("/crates/{}/{}/authors", self.name, self.version)));
+    Ok(json::decode::<Authors>(&body).unwrap().meta.names)
+  }
+
+  pub fn yank(self) -> Result<()> {
+    let body = try!(self.client.delete(format!("/crates/{}/{}/yank", self.name, self.version), None));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn unyank(self) -> Result<()> {
+    let body = try!(self.client.put(format!("/crates/{}/{}/unyank", self.name, self.version), None));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+}
+
+/// Client interface for a given crate
+pub struct Krate<'a, 'b> {
+  client: &'a mut Client,
+  name: &'b str
+}
+
+impl<'a, 'b> Krate<'a, 'b> {
+  pub fn new(client:&'a mut Client, name: &'b str) -> Krate<'a,'b> {
+    Krate { client: client, name: name }
+  }
+
+  pub fn downloads(self) -> Result<Vec<Download>> {
+    let body = try!(self.client.get(format!("/crates/{}/downloads", self.name)));
+    Ok(json::decode::<MetaDownloads>(&body).unwrap().meta.extra_downloads)
+  }
+
+  pub fn follow(self) -> Result<()> {
+    let body = try!(self.client.put(format!("/crates/{}/follow", self.name), None));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn unfollow(self) -> Result<()> {
+    let body = try!(self.client.delete(format!("/crates/{}/follow", self.name), None));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn following(self) -> Result<bool> {
+    let body = try!(self.client.get(format!("/crates/{}/following", self.name)));
+    Ok(json::decode::<Following>(&body).unwrap().following)
+  }
+
+  pub fn get(self) -> Result<Crate> {
+    let body = try!(self.client.get(format!("/crates/{}", self.name)));
+    Ok(json::decode::<CrateReq>(&body).unwrap().krate)
+  }
+
+  pub fn owners(self) -> Result<Vec<User>> {
+    let body = try!(self.client.get(format!("/crates/{}/owners", self.name)));
+    Ok(json::decode::<Users>(&body).unwrap().users)
+  }
+
+  pub fn add_owners(self, owners: &[&str]) -> Result<()> {
+    let data = json::encode(&OwnersReq { users: owners }).unwrap();
+    let mut bytes = data.as_bytes();
+    let body = try!(self.client.put(format!("/crates/{}/owners", self.name),
+                             Some(Body::new(&mut Box::new(&mut bytes), bytes.len() as u64))));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn remove_owners(self, owners: &[&str]) -> Result<()> {
+    let data = json::encode(&OwnersReq { users: owners }).unwrap();
+    let mut bytes = data.as_bytes();
+    let body = try!(self.client.delete(format!("/crates/{}/owners", self.name),
+                                Some(Body::new(&mut Box::new(&mut bytes), bytes.len() as u64))));
+    assert!(json::decode::<Status>(&body).unwrap().ok);
+    Ok(())
+  }
+
+  pub fn reverse_dependencies(&mut self) -> Result<Vec<Dependency>> {
+    let body = try!(self.client.get(format!("/crates/{}/reverse_dependencies", self.name)));
+    Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
+  }
+
+  pub fn version<'c>(&'c mut self, version: &'c str) -> KrateVersion {
+    KrateVersion::new(self.client, self.name, version)
+  }
+
+  pub fn versions(self) -> Result<Vec<Version>> {
+    let body = try!(self.client.get(format!("/crates/{}/versions", self.name)));
+    let versions: Vec<Version> = json::decode::<Versions>(&body).unwrap().versions;
+    Ok(versions)
   }
 }
 
@@ -220,15 +353,14 @@ impl Client {
     }
   }
 
+  pub fn krate<'a>(&'a mut self, name: &'a str) -> Krate {
+    Krate::new(self, name)
+  }
+
   // todo: sort (downloads|name), by letter/keyword/user_id/following
   pub fn find(&mut self, query: &str) -> Result<Vec<Crate>> {
     let body = try!(self.get(format!("/crates?q={}&sort={}", query, "name")));
     Ok(json::decode::<Crates>(&body).unwrap().crates)
-  }
-
-  pub fn named(&mut self, name: &str) -> Result<Crate> {
-    let body = try!(self.get(format!("/crates/{}", name)));
-    Ok(json::decode::<CrateReq>(&body).unwrap().krate)
   }
 
   // todo: publish -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L76
@@ -259,95 +391,7 @@ impl Client {
     Ok(())
   }
 
-  pub fn version(&mut self, name: &str, version: &str) -> Result<Version> {
-    let body = try!(self.get(format!("/crates/{}/{}", name, version)));
-    Ok(json::decode::<VersionReq>(&body).unwrap().version)
-  }
-
   // todo: version download -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L78
-
-  pub fn dependencies(&mut self, name: &str, version: &str) -> Result<Vec<Dependency>> {
-    let body = try!(self.get(format!("/crates/{}/{}/dependencies", name, version)));
-    Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
-  }
-
-  pub fn downloads(&mut self, name: &str, version: &str) -> Result<Vec<Download>> {
-    let body = try!(self.get(format!("/crates/{}/{}/downloads", name, version)));
-    Ok(json::decode::<VersionDownloads>(&body).unwrap().version_downloads)
-  }
-
-  pub fn authors(&mut self, name: &str, version: &str) -> Result<Vec<String>> {
-    let body = try!(self.get(format!("/crates/{}/{}/authors", name, version)));
-    Ok(json::decode::<Authors>(&body).unwrap().meta.names)
-  }
-
-  pub fn all_downloads(&mut self, name: &str) -> Result<Vec<Download>> {
-    let body = try!(self.get(format!("/crates/{}/downloads", name)));
-    Ok(json::decode::<MetaDownloads>(&body).unwrap().meta.extra_downloads)
-  }
-
-  pub fn versions(&mut self, name: &str) -> Result<Vec<Version>> {
-    let body = try!(self.get(format!("/crates/{}/versions", name)));
-    let versions: Vec<Version> = json::decode::<Versions>(&body).unwrap().versions;
-    Ok(versions)
-  }
-
-  pub fn follow(&mut self, krate: &str) -> Result<()> {
-    let body = try!(self.put(format!("/crates/{}/follow", krate), None));
-    assert!(json::decode::<Status>(&body).unwrap().ok);
-    Ok(())
-  }
-
-  pub fn unfollow(&mut self, krate: &str) -> Result<()> {
-    let body = try!(self.delete(format!("/crates/{}/follow", krate), None));
-    assert!(json::decode::<Status>(&body).unwrap().ok);
-    Ok(())
-  }
-
-  pub fn following(&mut self, krate: &str) -> Result<bool> {
-    let body = try!(self.get(format!("/crates/{}/following", krate)));
-    Ok(json::decode::<Following>(&body).unwrap().following)
-  }
-
-  pub fn owners(&mut self, krate: &str) -> Result<Vec<User>> {
-    let body = try!(self.get(format!("/crates/{}/owners", krate)));
-    Ok(json::decode::<Users>(&body).unwrap().users)
-  }
-
-  pub fn add_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
-    let data = json::encode(&OwnersReq { users: owners }).unwrap();
-    let mut bytes = data.as_bytes();
-    let body = try!(self.put(format!("/crates/{}/owners", krate),
-                             Some(Body::new(&mut Box::new(&mut bytes), bytes.len() as u64))));
-    assert!(json::decode::<Status>(&body).unwrap().ok);
-    Ok(())
-  }
-
-  pub fn remove_owners(&mut self, krate: &str, owners: &[&str]) -> Result<()> {
-    let data = json::encode(&OwnersReq { users: owners }).unwrap();
-    let mut bytes = data.as_bytes();
-    let body = try!(self.delete(format!("/crates/{}/owners", krate),
-                                Some(Body::new(&mut Box::new(&mut bytes), bytes.len() as u64))));
-    assert!(json::decode::<Status>(&body).unwrap().ok);
-    Ok(())
-  }
-
-  pub fn yank(&mut self, krate: &str, version: &str) -> Result<()> {
-    let body = try!(self.delete(format!("/crates/{}/{}/yank", krate, version), None));
-    assert!(json::decode::<Status>(&body).unwrap().ok);
-    Ok(())
-  }
-
-  pub fn unyank(&mut self, krate: &str, version: &str) -> Result<()> {
-    let body = try!(self.put(format!("/crates/{}/{}/unyank", krate, version), None));
-    assert!(json::decode::<Status>(&body).unwrap().ok);
-    Ok(())
-  }
-
-  pub fn reverse_dependencies(&mut self, krate: &str) -> Result<Vec<Dependency>> {
-    let body = try!(self.get(format!("/crates/{}/reverse_dependencies", krate)));
-    Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
-  }
 
   fn get(&mut self, path: String) -> Result<String> {
     self.req(Method::Get, path, None)
@@ -388,7 +432,6 @@ impl Client {
     res.read_to_string(&mut body).map(|_| body)
   }  
 }
-
 
 #[cfg(test)]
 mod tests {
