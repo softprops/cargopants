@@ -1,7 +1,4 @@
-#![feature(core)]
-#![feature(io)]
-#![feature(path)]
-#![feature(test)]
+#![feature(core, test)]
 
 //! # cargopants
 //! Cargopants exposes an client interface for crates.io
