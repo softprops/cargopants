@@ -11,12 +11,10 @@ keywords = ["crates", "crates.io"]
 license = "MIT"
 
 [dependencies]
-hyper = "0.3.0"
-rustc-serialize = "0.2"
+hyper = "0.3.2"
 mime = "0.0.10"
-
-[dependencies.url]
-url = "https://github.com/servo/rust-url"
+rustc-serialize = "0.3.6"
+url = "0.2.27"
 
 [[bin]]
 name = "cargopants"
