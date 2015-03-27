@@ -11,7 +11,7 @@ keywords = ["crates", "crates.io"]
 license = "MIT"
 
 [dependencies]
-hyper = "0.3.2"
+hyper = "0.3.4"
 mime = "0.0.10"
 rustc-serialize = "0.3.6"
 url = "0.2.27"
