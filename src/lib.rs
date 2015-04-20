@@ -364,10 +364,12 @@ impl<'a, 'b> Krate<'a, 'b> {
 }
 
 impl Client {
+  /// Create a new Client interface for crates.io
   pub fn new() -> Client {
     Client::host("https://crates.io")
   }
 
+  /// Create a new Client interface for a given host
   pub fn host(addr: &str) -> Client {
     let transport = (hyper::Client::new(), addr.to_string());
     Client {
@@ -376,6 +378,7 @@ impl Client {
     }
   }
 
+  /// Authenticate requests with an auth token
   pub fn token(self, auth: &str) -> Client {
     Client {
       transport: self.transport,
