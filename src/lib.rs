@@ -30,8 +30,40 @@ pub type Result<T> = result::Result<T, Error>;
 
 /// Entry point for accessing crates.io
 pub struct Client {
-  host: String,
+  transport: Box<Transport>,
   token: Option<String>
+}
+
+pub trait Transport {
+  fn request(&mut self, method: Method, path: String, body: Option<Body>, token: Option<String>) -> Result<String>;
+}
+
+impl Transport for (hyper::Client, String) {
+  fn request(&mut self, method: Method, path: String, body: Option<Body>, token: Option<String>) -> Result<String> {
+    let uri = Url::parse(&format!("{}/api/v1{}", self.1, path)).ok().expect("invalid url");
+    let content_type: Mime = Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]);
+    let bound = self.0.request(method, uri)
+      .header(UserAgent("cargopants/0.1.0".to_string()))
+      .header(Accept(vec![qitem(content_type.clone())]))
+      .header(ContentType(content_type));
+    let authenticated = match token.clone() {
+      Some(auth) => bound.header(Authorization(auth)),
+               _ => bound
+    };
+    let embodied = match body {
+      Some(Body { read: r, size: l }) => {
+        let reader: &mut Read  = *r.deref_mut();
+        authenticated.body(client::Body::SizedBody(reader, l))
+      },
+      _  => authenticated
+    };
+    let mut res = match embodied.send() {
+      Ok(r)    => r,
+      Err(err) => panic!("failed request: {:?}", err)
+    };
+    let mut body = String::new();
+    res.read_to_string(&mut body).map(|_| body)
+  }
 }
 
 #[derive(RustcDecodable)]
@@ -198,7 +230,7 @@ struct Crates {
   crates: Vec<Crate>
 }
 
-struct Body<'a> {
+pub struct Body<'a> {
  read: &'a mut Box<&'a mut Read>,
  size: u64
 }
@@ -337,15 +369,16 @@ impl Client {
   }
 
   pub fn host(addr: &str) -> Client {
+    let transport = (hyper::Client::new(), addr.to_string());
     Client {
-      host: addr.to_string(),
+      transport: Box::new(transport),
       token: None
     }
   }
 
   pub fn token(self, auth: &str) -> Client {
     Client {
-      host: self.host,
+      transport: self.transport,
       token: Some(auth.to_string())
     }
   }
@@ -403,30 +436,7 @@ impl Client {
   }
 
   fn req(&mut self, method: Method, path: String, body: Option<Body>) -> Result<String> {
-    let uri = Url::parse(&format!("{}/api/v1{}", self.host, path)).ok().expect("invalid url");
-    let mut client = hyper::Client::new();
-    let content_type: Mime = Mime(Application, Json, vec![(Attr::Charset, Value::Utf8)]);
-    let bound = client.request(method, uri)
-      .header(UserAgent("cargopants/0.1.0".to_string()))
-      .header(Accept(vec![qitem(content_type.clone())]))
-      .header(ContentType(content_type));
-    let authenticated = match self.token.clone() {
-      Some(auth) => bound.header(Authorization(auth)),
-               _ => bound
-    };
-    let embodied = match body {
-      Some(Body { read: r, size: l }) => {
-        let reader: &mut Read  = *r.deref_mut();
-        authenticated.body(client::Body::SizedBody(reader, l))
-      },
-      _  => authenticated
-    };
-    let mut res = match embodied.send() {
-      Ok(r)    => r,
-      Err(err) => panic!("failed request: {:?}", err)
-    };
-    let mut body = String::new();
-    res.read_to_string(&mut body).map(|_| body)
+    self.transport.request(method, path, body, self.token.clone())
   }  
 }
 
