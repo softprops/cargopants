@@ -1,8 +1,21 @@
 #![deny(missing_docs)]
 #![feature(core, test)]
 
-//! # cargopants
-//! Cargopants exposes a client interface for crates.io
+//! Cargopants exposes a client interface for crates.io providing
+//! open access to the rust communities  of crate inventory
+//!
+//! # examples
+//!
+//! ```
+//! extern create cargopants;
+//!
+//! use cargopants::Client
+//!
+//! let mut cargo = Client::new();
+//! let mut url = cargo.krate("url");
+//! let version = v.get("0.2.25");
+//! println!("url@0.2.25 -> {:?} ", v.get().unwrap());
+//! ```
 
 extern crate core;
 extern crate hyper;
@@ -33,9 +46,9 @@ pub struct Client {
   token: Option<String>
 }
 
-/// Network communication interface with crate host
+
+#[doc(hidden)]
 pub trait Transport {
-  /// Issues a create request
   fn request(&mut self, method: Method, path: String, body: Option<Body>, token: Option<String>) -> Result<String>;
 }
 
@@ -272,7 +285,7 @@ struct Crates {
   crates: Vec<Crate>
 }
 
-/// Represents a crate request body
+#[doc(hidden)]
 pub struct Body<'a> {
  read: &'a mut Box<&'a mut Read>,
  size: u64
