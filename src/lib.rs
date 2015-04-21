@@ -1,7 +1,8 @@
+#![deny(missing_docs)]
 #![feature(core, test)]
 
 //! # cargopants
-//! Cargopants exposes an client interface for crates.io
+//! Cargopants exposes a client interface for crates.io
 
 extern crate core;
 extern crate hyper;
@@ -22,11 +23,9 @@ use rustc_serialize::{ Decoder, Decodable, json };
 use std::collections::HashMap;
 use std::fs::{ self, File };
 use std::io::prelude::*;
-use std::io::{ Cursor, Error };
+use std::io::{ Cursor, Error, Result };
 use std::path::Path;
 use std::result;
-
-pub type Result<T> = result::Result<T, Error>;
 
 /// Entry point for accessing crates.io
 pub struct Client {
@@ -34,7 +33,9 @@ pub struct Client {
   token: Option<String>
 }
 
+/// Network communication interface with crate host
 pub trait Transport {
+  /// Issues a create request
   fn request(&mut self, method: Method, path: String, body: Option<Body>, token: Option<String>) -> Result<String>;
 }
 
@@ -80,10 +81,15 @@ struct Following {
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct User {
+  /// User id
   pub id: u32,
+  /// User login name
   pub login: String,
+  /// User avatar url
   pub avatar: String,
+  /// User email where available
   pub email: Option<String>,
+  /// User name where available
   pub name: Option<String>,
 }
 
@@ -96,8 +102,11 @@ struct Users {
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Crate {
+  /// name of crate
   pub name: String,
+  /// description of create
   pub description: Option<String>,
+  /// the most recent version
   pub max_version: String
 }
 
@@ -121,7 +130,9 @@ impl Decodable for CrateReq {
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Download {
+  /// date of downloads
   pub date: String,
+  /// number of downloads on that day
   pub downloads: u32
 }
 
@@ -144,11 +155,17 @@ struct MetaDownloads {
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Dependency {
+  /// Crate identifier
   pub crate_id: String,
+  /// feature defaults
   pub default_features: bool,
+  /// features
   pub features: String,
+  /// kind of dependency
   pub kind: String,
+  /// optional dependency indicator
   pub optional: bool,
+  /// ...
   pub req: String  
 }
 
@@ -161,12 +178,17 @@ struct Dependencies {
 #[derive(RustcDecodable)]
 #[derive(Debug)]
 pub struct Version {
-  // crate: String,
+  /// crate: String,
   pub created_at: String,
+  /// path to download version
   pub dl_path: String,
+  /// number of downloads
   pub downloads: u32,
+  /// version number
   pub num: String,
+  /// last time this version was updated
   pub updated_at: String,
+  /// indicates if version was yanked from crate server
   pub yanked: bool
 }
 
@@ -193,30 +215,50 @@ struct Authors {
 /// Interface for creating a new crate
 #[derive(RustcEncodable)]
 pub struct NewCrate {
+  /// name of crate
   pub name: String,
+  /// version to post
   pub vers: String,
+  /// vector of dependencies
   pub deps: Vec<NewCrateDependency>,
+  /// features
   pub features: HashMap<String, Vec<String>>,
+  /// vector of authors
   pub authors: Vec<String>,
+  /// description of crate
   pub description: Option<String>,
+  /// link to documentation
   pub documentation: Option<String>,
+  /// link to homepage
   pub homepage: Option<String>,
+  /// link to readme
   pub readme: Option<String>,
+  /// vector of keywords
   pub keywords: Vec<String>,
+  /// name of license
   pub license: Option<String>,
+  /// path of licence file
   pub license_file: Option<String>,
+  /// repository of crate
   pub repository: Option<String>,
 }
 
 /// Representation of a new crate dependency
 #[derive(RustcEncodable)]
 pub struct NewCrateDependency {
+  /// optional indicator
   pub optional: bool,
+  /// feature defaults
   pub default_features: bool,
+  /// name of dependency
   pub name: String,
+  /// vector of features
   pub features: Vec<String>,
+  /// version requirement
   pub version_req: String,
+  /// ...
   pub target: Option<String>,
+  /// kind of dependency
   pub kind: String,
 }
 
@@ -230,12 +272,14 @@ struct Crates {
   crates: Vec<Crate>
 }
 
+/// Represents a crate request body
 pub struct Body<'a> {
  read: &'a mut Box<&'a mut Read>,
  size: u64
 }
 
 impl<'a> Body<'a> {
+  /// Create a new body instance
   pub fn new(read: &'a mut Box<&'a mut Read>, size: u64) -> Body<'a> {
     Body { read: read, size: size }
   }
@@ -249,36 +293,43 @@ pub struct KrateVersion<'a, 'b, 'c> {
 }
 
 impl<'a, 'b, 'c> KrateVersion<'a, 'b, 'c> {
+  /// Provide a create version specific view of information
   pub fn new(client:&'a mut Client, name: &'b str, version: &'c str) -> KrateVersion<'a, 'b, 'c> {
     KrateVersion { client: client, name: name, version: version }
   }
 
+  /// Fetch base set of information for a crate version
   pub fn get(self) -> Result<Version> {
     let body = try!(self.client.get(format!("/crates/{}/{}", self.name, self.version)));
     Ok(json::decode::<VersionReq>(&body).unwrap().version)
   }
 
+  /// Fetch dependencies associated with a crate version
   pub fn dependencies(self) -> Result<Vec<Dependency>> {
     let body = try!(self.client.get(format!("/crates/{}/{}/dependencies", self.name, self.version)));
     Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
   }
 
+  /// Fetch download information associated with a crate version
   pub fn downloads(self) -> Result<Vec<Download>> {
     let body = try!(self.client.get(format!("/crates/{}/{}/downloads", self.name, self.version)));
     Ok(json::decode::<VersionDownloads>(&body).unwrap().version_downloads)
   }
 
+  /// Fetch authors associated with a crate version
   pub fn authors(self) -> Result<Vec<String>> {
     let body = try!(self.client.get(format!("/crates/{}/{}/authors", self.name, self.version)));
     Ok(json::decode::<Authors>(&body).unwrap().meta.names)
   }
 
+  /// Yank a crate version from a crate server
   pub fn yank(self) -> Result<()> {
     let body = try!(self.client.delete(format!("/crates/{}/{}/yank", self.name, self.version), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
+  /// Unyank a crate version from a crate server
   pub fn unyank(self) -> Result<()> {
     let body = try!(self.client.put(format!("/crates/{}/{}/unyank", self.name, self.version), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
@@ -293,42 +344,50 @@ pub struct Krate<'a, 'b> {
 }
 
 impl<'a, 'b> Krate<'a, 'b> {
+  /// Provides a crate specific view of information
   pub fn new(client:&'a mut Client, name: &'b str) -> Krate<'a,'b> {
     Krate { client: client, name: name }
   }
-
+  
+  /// Request download information for a create
   pub fn downloads(self) -> Result<Vec<Download>> {
     let body = try!(self.client.get(format!("/crates/{}/downloads", self.name)));
     Ok(json::decode::<MetaDownloads>(&body).unwrap().meta.extra_downloads)
   }
 
+  /// Follow a crate
   pub fn follow(self) -> Result<()> {
     let body = try!(self.client.put(format!("/crates/{}/follow", self.name), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
+  /// Unfollow a crate
   pub fn unfollow(self) -> Result<()> {
     let body = try!(self.client.delete(format!("/crates/{}/follow", self.name), None));
     assert!(json::decode::<Status>(&body).unwrap().ok);
     Ok(())
   }
 
+  /// Request indication of whether the current authentication credentials follows this crate
   pub fn following(self) -> Result<bool> {
     let body = try!(self.client.get(format!("/crates/{}/following", self.name)));
     Ok(json::decode::<Following>(&body).unwrap().following)
   }
 
+  /// Get the base set of information associated for a crate
   pub fn get(self) -> Result<Crate> {
     let body = try!(self.client.get(format!("/crates/{}", self.name)));
     Ok(json::decode::<CrateReq>(&body).unwrap().krate)
   }
 
+  /// Requests a vector of owners for a crate
   pub fn owners(self) -> Result<Vec<User>> {
     let body = try!(self.client.get(format!("/crates/{}/owners", self.name)));
     Ok(json::decode::<Users>(&body).unwrap().users)
   }
 
+  /// Adds owner to for a crate
   pub fn add_owners(self, owners: &[&str]) -> Result<()> {
     let data = json::encode(&OwnersReq { users: owners }).unwrap();
     let mut bytes = data.as_bytes();
@@ -338,6 +397,7 @@ impl<'a, 'b> Krate<'a, 'b> {
     Ok(())
   }
 
+  /// Remove owners from a crate
   pub fn remove_owners(self, owners: &[&str]) -> Result<()> {
     let data = json::encode(&OwnersReq { users: owners }).unwrap();
     let mut bytes = data.as_bytes();
@@ -347,15 +407,18 @@ impl<'a, 'b> Krate<'a, 'b> {
     Ok(())
   }
 
+  /// Fetches references to crates that depend on this crate
   pub fn reverse_dependencies(&mut self) -> Result<Vec<Dependency>> {
     let body = try!(self.client.get(format!("/crates/{}/reverse_dependencies", self.name)));
     Ok(json::decode::<Dependencies>(&body).unwrap().dependencies)
   }
 
+  /// Provides access to crate version specific resources
   pub fn version<'c>(&'c mut self, version: &'c str) -> KrateVersion {
     KrateVersion::new(self.client, self.name, version)
   }
 
+  /// Requests all versions associated with a given create
   pub fn versions(self) -> Result<Vec<Version>> {
     let body = try!(self.client.get(format!("/crates/{}/versions", self.name)));
     let versions: Vec<Version> = json::decode::<Versions>(&body).unwrap().versions;
@@ -386,17 +449,20 @@ impl Client {
     }
   }
 
+  /// Provides access to crate-specific resources
   pub fn krate<'a>(&'a mut self, name: &'a str) -> Krate {
     Krate::new(self, name)
   }
 
   // todo: sort (downloads|name), by letter/keyword/user_id/following
+  /// Issues a request to find a crate by name
   pub fn find(&mut self, query: &str) -> Result<Vec<Crate>> {
     let body = try!(self.get(format!("/crates?q={}&sort={}", query, "name")));
     Ok(json::decode::<Crates>(&body).unwrap().crates)
   }
 
   // todo: publish -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L76
+  /// Publishes a tar'd crate file to crate server
   pub fn publish(&mut self, krate: &NewCrate, tarball: &Path) -> Result<()> {
     let json = json::encode(krate).unwrap();
     let stat = try!(fs::metadata(tarball));
@@ -449,7 +515,7 @@ mod tests {
 
   #[test]
   fn it_parses_crate_req() {
-
+    
   }
 
   #[bench]
