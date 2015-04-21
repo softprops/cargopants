@@ -14,7 +14,6 @@ license = "MIT"
 hyper = "0.3.14"
 mime = "0.0.10"
 rustc-serialize = "0.3.12"
-url = "0.2.29"
 
 [[bin]]
 name = "cargopants"

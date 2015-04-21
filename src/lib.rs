@@ -2,19 +2,17 @@
 #![feature(core, test)]
 
 //! Cargopants exposes a client interface for crates.io providing
-//! open access to the rust communities  of crate inventory
+//! open access to the rust community's crate inventory
 //!
 //! # examples
 //!
 //! ```
-//! extern create cargopants;
+//! extern crate cargopants;
 //!
-//! use cargopants::Client
-//!
-//! let mut cargo = Client::new();
+//! let mut cargo = cargopants::Client::new();
 //! let mut url = cargo.krate("url");
-//! let version = v.get("0.2.25");
-//! println!("url@0.2.25 -> {:?} ", v.get().unwrap());
+//!
+//! println!("url@0.2.25 -> {:?} ", url.version("0.2.25").get().unwrap());
 //! ```
 
 extern crate core;
@@ -22,7 +20,6 @@ extern crate hyper;
 extern crate mime;
 extern crate rustc_serialize;
 extern crate test;
-extern crate url;
 
 use core::ops::DerefMut;
 use hyper::Url;
@@ -45,7 +42,6 @@ pub struct Client {
   transport: Box<Transport>,
   token: Option<String>
 }
-
 
 #[doc(hidden)]
 pub trait Transport {
@@ -524,15 +520,8 @@ impl Client {
 
 #[cfg(test)]
 mod tests {
-  use test::Bencher;
-
   #[test]
   fn it_parses_crate_req() {
     
-  }
-
-  #[bench]
-  fn it_benches(b: &mut Bencher) {
-
   }
 }
