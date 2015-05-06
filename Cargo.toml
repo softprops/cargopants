@@ -11,9 +11,9 @@ keywords = ["crates", "crates.io"]
 license = "MIT"
 
 [dependencies]
-hyper = "0.3.14"
-mime = "0.0.10"
-rustc-serialize = "0.3.12"
+hyper = "0.3.16"
+mime = "0.0.11"
+rustc-serialize = "0.3.14"
 
 [[bin]]
 name = "cargopants"
