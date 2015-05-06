@@ -1,5 +1,5 @@
 #![deny(missing_docs)]
-#![feature(core, test)]
+#![feature(test)]
 
 //! Cargopants exposes a client interface for crates.io providing
 //! open access to the rust community's crate inventory
@@ -15,13 +15,12 @@
 //! println!("url@0.2.25 -> {:?} ", url.version("0.2.25").get().unwrap());
 //! ```
 
-extern crate core;
 extern crate hyper;
 extern crate mime;
 extern crate rustc_serialize;
 extern crate test;
 
-use core::ops::DerefMut;
+use std::ops::DerefMut;
 use hyper::Url;
 use hyper::client;
 use hyper::header::{ Accept, Authorization, ContentType, UserAgent, qitem };
