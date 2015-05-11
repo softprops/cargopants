@@ -20,21 +20,113 @@ extern crate mime;
 extern crate rustc_serialize;
 extern crate test;
 
+pub mod rep;
+
 use std::ops::DerefMut;
 use hyper::Url;
 use hyper::client;
-use hyper::header::{ Accept, Authorization, ContentType, UserAgent, qitem };
+use hyper::header::{
+  Accept, Authorization, ContentType,
+  UserAgent, qitem
+};
 use hyper::method::Method;
 use mime::{ Attr, Mime, Value };
 use mime::TopLevel::Application;
 use mime::SubLevel::Json;
 use rustc_serialize::{ Decoder, Decodable, json };
-use std::collections::HashMap;
+use rep::{
+  Crate, Dependency, Download,
+  NewCrate, User, Version
+};
 use std::fs::{ self, File };
 use std::io::prelude::*;
 use std::io::{ Cursor, Error, Result };
 use std::path::Path;
 use std::result;
+
+// internal representations of various 
+// requests and responses
+
+#[derive(RustcDecodable)]
+struct VersionReq {
+  version: Version
+}
+
+#[derive(RustcDecodable)]
+struct Versions {
+  versions: Vec<Version>
+}
+
+#[derive(RustcDecodable)]
+struct Status {
+  ok: bool
+}
+
+#[derive(RustcDecodable)]
+struct Users {
+  users: Vec<User>
+}
+
+#[derive(RustcDecodable)]
+struct Following {
+  following: bool
+}
+
+#[derive(RustcDecodable)]
+struct Dependencies {
+  dependencies: Vec<Dependency>    
+}
+
+#[derive(RustcDecodable)]
+struct VersionDownloads {
+  version_downloads: Vec<Download>
+}
+
+#[derive(RustcDecodable)]
+struct ExtraDownloads {
+  extra_downloads: Vec<Download>
+}
+
+#[derive(RustcDecodable)]
+struct MetaDownloads {
+  meta: ExtraDownloads
+}
+
+#[derive(RustcDecodable)]
+struct Crates {
+  crates: Vec<Crate>
+}
+
+// RustcDecodable be derived because the key used in json is `crate`,
+// a reserved word
+struct CrateReq {
+  krate: Crate
+}
+
+impl Decodable for CrateReq {
+  fn decode<D: Decoder>(d: &mut D) -> result::Result<CrateReq, D::Error> {
+    d.read_struct("CrateReq", 1usize, |_d| {
+      Ok(CrateReq {
+        krate: try!(_d.read_struct_field("crate", 0usize, |_d| Decodable::decode(_d)))
+      })
+    })
+  }
+}
+
+#[derive(RustcDecodable)]
+struct Authors {
+  meta: Meta
+}
+
+#[derive(RustcDecodable)]
+struct Meta {
+  names: Vec<String>
+}
+
+#[derive(RustcEncodable)]
+struct OwnersReq<'a> {
+  users: &'a [&'a str]
+}
 
 /// Entry point for accessing crates.io
 pub struct Client {
@@ -73,211 +165,6 @@ impl Transport for (hyper::Client, String) {
     let mut body = String::new();
     res.read_to_string(&mut body).map(|_| body)
   }
-}
-
-#[derive(RustcDecodable)]
-struct Status {
-  ok: bool
-}
-
-#[derive(RustcDecodable)]
-struct Following {
-  following: bool
-}
-
-/// Representation of a crates.io User
-#[derive(RustcDecodable)]
-#[derive(Debug)]
-pub struct User {
-  /// User id
-  pub id: u32,
-  /// User login name
-  pub login: String,
-  /// User avatar url
-  pub avatar: String,
-  /// User email where available
-  pub email: Option<String>,
-  /// User name where available
-  pub name: Option<String>,
-}
-
-#[derive(RustcDecodable)]
-struct Users {
-  users: Vec<User>
-}
-
-/// Representation of a crates.io Crate
-#[derive(RustcDecodable)]
-#[derive(Debug)]
-pub struct Crate {
-  /// name of crate
-  pub name: String,
-  /// description of create
-  pub description: Option<String>,
-  /// the most recent version
-  pub max_version: String
-}
-
-// RustcDecodable be derived because the key used in json is `crate`,
-// a reserved word
-struct CrateReq {
-  krate: Crate
-}
-
-impl Decodable for CrateReq {
-  fn decode<D: Decoder>(d: &mut D) -> result::Result<CrateReq, D::Error> {
-    d.read_struct("CrateReq", 1usize, |_d| {
-      Ok(CrateReq {
-        krate: try!(_d.read_struct_field("crate", 0usize, |_d| Decodable::decode(_d)))
-      })
-    })
-  }
-}
-
-/// Representation of the downloads of a version on a given date
-#[derive(RustcDecodable)]
-#[derive(Debug)]
-pub struct Download {
-  /// date of downloads
-  pub date: String,
-  /// number of downloads on that day
-  pub downloads: u32
-}
-
-#[derive(RustcDecodable)]
-struct VersionDownloads {
-  version_downloads: Vec<Download>
-}
-
-#[derive(RustcDecodable)]
-struct ExtraDownloads {
-  extra_downloads: Vec<Download>
-}
-
-#[derive(RustcDecodable)]
-struct MetaDownloads {
-  meta: ExtraDownloads
-}
-
-/// Representation of a crate dependency
-#[derive(RustcDecodable)]
-#[derive(Debug)]
-pub struct Dependency {
-  /// Crate identifier
-  pub crate_id: String,
-  /// feature defaults
-  pub default_features: bool,
-  /// features
-  pub features: String,
-  /// kind of dependency
-  pub kind: String,
-  /// optional dependency indicator
-  pub optional: bool,
-  /// ...
-  pub req: String  
-}
-
-#[derive(RustcDecodable)]
-struct Dependencies {
-  dependencies: Vec<Dependency>    
-}
-
-/// Representation of a crate version
-#[derive(RustcDecodable)]
-#[derive(Debug)]
-pub struct Version {
-  /// crate: String,
-  pub created_at: String,
-  /// path to download version
-  pub dl_path: String,
-  /// number of downloads
-  pub downloads: u32,
-  /// version number
-  pub num: String,
-  /// last time this version was updated
-  pub updated_at: String,
-  /// indicates if version was yanked from crate server
-  pub yanked: bool
-}
-
-#[derive(RustcDecodable)]
-struct VersionReq {
-  version: Version
-}
-
-#[derive(RustcDecodable)]
-struct Versions {
-  versions: Vec<Version>
-}
-
-#[derive(RustcDecodable)]
-struct Meta {
-  names: Vec<String>
-}
-
-#[derive(RustcDecodable)]
-struct Authors {
-  meta: Meta
-}
-
-/// Interface for creating a new crate
-#[derive(RustcEncodable)]
-pub struct NewCrate {
-  /// name of crate
-  pub name: String,
-  /// version to post
-  pub vers: String,
-  /// vector of dependencies
-  pub deps: Vec<NewCrateDependency>,
-  /// features
-  pub features: HashMap<String, Vec<String>>,
-  /// vector of authors
-  pub authors: Vec<String>,
-  /// description of crate
-  pub description: Option<String>,
-  /// link to documentation
-  pub documentation: Option<String>,
-  /// link to homepage
-  pub homepage: Option<String>,
-  /// link to readme
-  pub readme: Option<String>,
-  /// vector of keywords
-  pub keywords: Vec<String>,
-  /// name of license
-  pub license: Option<String>,
-  /// path of licence file
-  pub license_file: Option<String>,
-  /// repository of crate
-  pub repository: Option<String>,
-}
-
-/// Representation of a new crate dependency
-#[derive(RustcEncodable)]
-pub struct NewCrateDependency {
-  /// optional indicator
-  pub optional: bool,
-  /// feature defaults
-  pub default_features: bool,
-  /// name of dependency
-  pub name: String,
-  /// vector of features
-  pub features: Vec<String>,
-  /// version requirement
-  pub version_req: String,
-  /// ...
-  pub target: Option<String>,
-  /// kind of dependency
-  pub kind: String,
-}
-
-#[derive(RustcEncodable)]
-struct OwnersReq<'a> {
-  users: &'a [&'a str]
-}
-
-#[derive(RustcDecodable)]
-struct Crates {
-  crates: Vec<Crate>
 }
 
 #[doc(hidden)]
