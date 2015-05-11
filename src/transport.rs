@@ -9,8 +9,7 @@ use hyper::header::{
 use mime::{ Attr, Mime, Value };
 use mime::TopLevel::Application;
 use mime::SubLevel::Json;
-use std::io::prelude::*;
-use std::io::Result;
+use std::io::{ Read, Result };
 use std::ops::DerefMut;
 
 #[doc(hidden)]
