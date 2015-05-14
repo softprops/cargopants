@@ -1,5 +1,4 @@
 #![deny(missing_docs)]
-#![feature(test)]
 
 //! Cargopants exposes a client interface for crates.io providing
 //! open access to the rust community's crate inventory
@@ -18,7 +17,6 @@
 extern crate hyper;
 extern crate mime;
 extern crate rustc_serialize;
-extern crate test;
 
 pub mod rep;
 #[doc(hidden)]
