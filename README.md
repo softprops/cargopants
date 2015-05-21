@@ -9,7 +9,7 @@ an API token, to obtain one, visit [this page](https://crates.io/me) in your web
 
 ## docs
 
-Find then [here](https://softprops.github.io/cargopants).
+Find them [here](https://softprops.github.io/cargopants).
 
 ## usage
 
@@ -19,7 +19,7 @@ extern crate cargopants;
 use cargopants::Client;
 
 fn main() {
-   let mut cargo = Client::new().token("ap1k3y");
+   let mut cargo = Client::new();
    println!("{:?}", cargo.reverse_dependencies("url").ok().expect("..."));
 }
 ```
