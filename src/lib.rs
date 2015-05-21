@@ -1,6 +1,6 @@
 #![deny(missing_docs)]
 
-//! Cargopants exposes a client interface for crates.io providing
+//! Cargopants exposes a client interface for [crates.io](https://crates.io/) providing
 //! open access to the rust community's crate inventory
 //!
 //! # examples
@@ -10,7 +10,7 @@
 //!
 //! let mut cargo = cargopants::Client::new();
 //! let mut url = cargo.krate("url");
-//!
+//! 
 //! println!("url@0.2.25 -> {:?} ", url.version("0.2.25").get().unwrap());
 //! ```
 
@@ -281,7 +281,12 @@ impl Client {
     }
   }
 
-  /// Authenticate requests with an auth token
+  /// Authenticate requests with an auth token.
+  /// You can retrieve a cargo auth token from [crates.io](https://crates.io/me)
+  /// # examples
+  /// ```rust
+  /// let client = cargopants::Client::new().token("token");
+  /// ``` 
   pub fn token(self, auth: &str) -> Client {
     Client {
       transport: self.transport,
@@ -330,21 +335,19 @@ impl Client {
     Ok(())
   }
 
-  // todo: version download -- https://github.com/rust-lang/crates.io/blob/dabd8778c1a515ea7572c59096da76e562afe2e2/src/lib.rs#L78
-
   fn get(&mut self, path: String) -> Result<String> {
-    self.req(Method::Get, path, None)
+    self.request(Method::Get, path, None)
   }
 
   fn delete(&mut self, path: String, body: Option<Body>) -> Result<String> {
-    self.req(Method::Delete, path, body)
+    self.request(Method::Delete, path, body)
   }
 
   fn put(&mut self, path: String, body: Option<Body>) -> Result<String> {
-    self.req(Method::Put, path, body)
+    self.request(Method::Put, path, body)
   }
 
-  fn req(&mut self, method: Method, path: String, body: Option<Body>) -> Result<String> {
+  fn request(&mut self, method: Method, path: String, body: Option<Body>) -> Result<String> {
     self.transport.request(method, path, body, self.token.clone())
   }  
 }
