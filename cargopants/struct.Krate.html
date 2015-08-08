@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Krate` struct in crate `cargopants`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Krate">
+
+    <title>cargopants::Krate - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>cargopants</a></p><script>window.sidebarCurrent = {name: 'Krate', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>cargopants</a>::<wbr><a class='struct' href=''>Krate</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-3115' class='srclink' href='../src/cargopants/lib.rs.html#181-184' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Krate&lt;'a, 'b&gt; {
+    // some fields omitted
+}</pre><div class='docblock'><p>Client interface for a given crate</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;'a, 'b&gt; <a class='struct' href='../cargopants/struct.Krate.html' title='cargopants::Krate'>Krate</a>&lt;'a, 'b&gt;</code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(client: &amp;'a mut <a class='struct' href='../cargopants/struct.Client.html' title='cargopants::Client'>Client</a>, name: &amp;'b <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../cargopants/struct.Krate.html' title='cargopants::Krate'>Krate</a>&lt;'a, 'b&gt;</code></h4>
+<div class='docblock'><p>Provides a crate specific view of information</p>
+</div><h4 id='method.downloads' class='method'><code>fn <a href='#method.downloads' class='fnname'>downloads</a>(self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../cargopants/rep/struct.Download.html' title='cargopants::rep::Download'>Download</a>&gt;&gt;</code></h4>
+<div class='docblock'><p>Request download information for a create</p>
+</div><h4 id='method.follow' class='method'><code>fn <a href='#method.follow' class='fnname'>follow</a>(self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<div class='docblock'><p>Follow a crate</p>
+</div><h4 id='method.unfollow' class='method'><code>fn <a href='#method.unfollow' class='fnname'>unfollow</a>(self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<div class='docblock'><p>Unfollow a crate</p>
+</div><h4 id='method.following' class='method'><code>fn <a href='#method.following' class='fnname'>following</a>(self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>&gt;</code></h4>
+<div class='docblock'><p>Request indication of whether the current authentication credentials follows this crate</p>
+</div><h4 id='method.get' class='method'><code>fn <a href='#method.get' class='fnname'>get</a>(self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../cargopants/rep/struct.Crate.html' title='cargopants::rep::Crate'>Crate</a>&gt;</code></h4>
+<div class='docblock'><p>Get the base set of information associated for a crate</p>
+</div><h4 id='method.owners' class='method'><code>fn <a href='#method.owners' class='fnname'>owners</a>(self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../cargopants/rep/struct.User.html' title='cargopants::rep::User'>User</a>&gt;&gt;</code></h4>
+<div class='docblock'><p>Requests a vector of owners for a crate</p>
+</div><h4 id='method.add_owners' class='method'><code>fn <a href='#method.add_owners' class='fnname'>add_owners</a>(self, owners: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a>&amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<div class='docblock'><p>Adds owner to for a crate</p>
+</div><h4 id='method.remove_owners' class='method'><code>fn <a href='#method.remove_owners' class='fnname'>remove_owners</a>(self, owners: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a>&amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<div class='docblock'><p>Remove owners from a crate</p>
+</div><h4 id='method.reverse_dependencies' class='method'><code>fn <a href='#method.reverse_dependencies' class='fnname'>reverse_dependencies</a>(&amp;mut self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../cargopants/rep/struct.Dependency.html' title='cargopants::rep::Dependency'>Dependency</a>&gt;&gt;</code></h4>
+<div class='docblock'><p>Fetches references to crates that depend on this crate</p>
+</div><h4 id='method.version' class='method'><code>fn <a href='#method.version' class='fnname'>version</a>&lt;'c&gt;(&amp;'c mut self, version: &amp;'c <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../cargopants/struct.KrateVersion.html' title='cargopants::KrateVersion'>KrateVersion</a></code></h4>
+<div class='docblock'><p>Provides access to crate version specific resources</p>
+</div><h4 id='method.versions' class='method'><code>fn <a href='#method.versions' class='fnname'>versions</a>(self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../cargopants/rep/struct.Version.html' title='cargopants::rep::Version'>Version</a>&gt;&gt;</code></h4>
+<div class='docblock'><p>Requests all versions associated with a given create</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "cargopants";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>
